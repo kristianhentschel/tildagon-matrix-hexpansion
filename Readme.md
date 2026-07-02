@@ -25,7 +25,7 @@ There is also a library of symbols and footprints to aid in making custom daught
 
 The CH32V006 processor on the base board runs native firmware code built with the [ch32fun framework](https://github.com/kristianhentschel/tildagon-matrix-hexpansion) (loaded here as a git submodule; ensure this is checked out with `git submodule update --init`).
 
-* `firmware/lite-loop` is the driver for the `lite-loop` daughter board. It maintains the LED matrix display and presents an I2C interface for identifying and controlling the hexpansion from the badge.
+* `firmware/lite_loop` is the driver for the `lite-loop` daughter board. It maintains the LED matrix display and presents an I2C interface for identifying and controlling the hexpansion from the badge.
 * `firmware/bootloader` presents an I2C EEPROM-like interface so the badge can write to the main code flash storage area of the chip and thus replace the main program with a new firmware image.
 
 To provision a factory-fresh processor, the bootloader must first be flashed using a dedicated programmer like the WCH-LinkE (flash bootloader, enable PD7 use as GPIO, flash main program). After this, firmware updates can be applied from the badge app and a dedicated programmer is not required (but may still be helpful for debugging).

@@ -1,0 +1,105 @@
+#include "ch32fun.h"
+#include <stdio.h>
+#include "../shared/matrix.h"
+#include "../shared/debug_printf.h"
+#include "../shared/hexpansion_header.h"
+#include "../shared/i2c_again.h"
+#include "../shared/core_registers.h"
+#include "leds.h"
+#include "animations/level.h"
+#include "animations/starfield.h"
+#include "animations/text.h"
+#include "eeprom_image.h"
+
+void loop() __attribute__((section(".srodata")));
+
+uint32_t count;
+matrix_pwm_t frame_buffer[MATRIX_NUM_LEDS];
+
+static hexpansion_header_t g_hexpansion_header = {
+	.magic = {'T', 'H', 'E', 'X'},
+	.manifest_version = {'2', '0', '2', '4'},
+	.filesystem_info = {
+		.offset = 32, // offset from start of eeprom, must be multiple of page size
+		.page_size = 32, // emulated eeprom page size (not littlefs block size I think)
+		.total_size = 8192, // emulated space, reads past fs will return zero
+	},
+	.vendor_id = 0xCAFE, // "misc hexpansions" from https://badge.emfcamp.org/Tildagon/UHB-IF/Uncontrolled_IDs
+	.product_id = 0x3207,
+	.unique_id = 0x0000,
+	.friendly_name = {'L', 'i', 't', 'e', 'l', 'o', 'o', 'p', 0},
+};
+
+volatile core_registers_t g_core_registers = {
+  .core_registers_version = CORE_REGISTERS_VERSION,
+};
+i2c_page_definition_t g_page_definitions[] = {
+  {.page_address = 0, .data = (uint8_t *)&g_core_registers, .data_size = sizeof(g_core_registers)},
+};
+
+static const i2c_config_t g_i2c_config = {
+	.primary_address = 0x20,
+	.primary_num_pages = 1,
+	.primary_page_definitions = g_page_definitions,
+
+	.secondary_address = 0x50, // EEPROM on 0x50 or 0x57
+	.secondary_header =	&g_hexpansion_header,
+	.secondary_fs = eeprom_image,
+	.secondary_fs_size = EEPROM_IMAGE_SIZE,
+};
+
+int main()
+{
+	SystemInit();
+  Delay_Ms(50);
+
+	funGpioInitAll();
+	funPinMode(PA1, FUN_OUTPUT);
+  funPinMode(PC1, GPIO_CFGLR_OUT_10Mhz_AF_OD); // SDA
+  funPinMode(PC2, GPIO_CFGLR_OUT_10Mhz_AF_OD); // SCL
+  funDigitalWrite(PA1, FUN_HIGH);
+
+	g_hexpansion_header.unique_id = ESIG->UNIID1 & 0xFFFF;
+	hexpansion_header_fill_checksum(&g_hexpansion_header);
+
+  i2c_setup(&g_i2c_config);
+
+	matrix_setup(frame_buffer);
+
+
+
+	g_core_registers.animation_type = 3;
+
+
+  loop();
+}
+
+void loop() {
+	int i = 0;
+	while(1)
+	{
+    if (g_core_registers.direct_control_options != 0) {
+      // TODO handle 1/2/3/4 bit data and convert to 8 bit format of frame buffer
+      for (uint8_t j = 0; j < MATRIX_NUM_LEDS; j++) {
+        frame_buffer[j] = g_core_registers.direct_control_data[j];
+      }
+		} else if (g_core_registers.animation_type == 1) {
+			animation_level(&g_core_registers, frame_buffer);
+		} else if (g_core_registers.animation_type == 2) {
+			animation_starfield(&g_core_registers, frame_buffer);
+		} else if (g_core_registers.animation_type == 3) {
+			animation_text(&g_core_registers, frame_buffer);
+    } else {
+			// default test pattern (fill in wiring order)
+      for (uint8_t j = 0; j < MATRIX_NUM_LEDS; j++) {
+        frame_buffer[j] = j < i ? 255 : 4;
+      }
+
+      i = (i + 1) % (MATRIX_NUM_LEDS + 1);
+      Delay_Ms(16);
+      if (i == 0)
+        Delay_Ms(500);
+      }
+	}
+}
+

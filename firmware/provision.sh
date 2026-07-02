@@ -9,7 +9,7 @@ DELAY=1
 function usage() {
   echo "Matrix Hexpansion provisioning script"
   echo ""
-  echo "Usage: ./provision.sh <options> [<app>]"
+  echo "Usage: ./provision.sh [options]"
   echo ""
   echo "Options:"
   echo "-h, --help       display this help and exit"
@@ -19,7 +19,7 @@ function usage() {
   echo "--loop           once all steps for a board have succeeded, repeat the process for another next board (bulk provisioning)"
   echo "--interactive    require user confirmation before moving on to the next board if run in a loop"
   echo ""
-  echo "<app>            name of the app folder to compile and flash (default=$DEFAULT_APP_NAME)"
+  echo "--app <app>      name of the app folder to compile and flash (default=$DEFAULT_APP_NAME)"
   exit 0
 }
 
