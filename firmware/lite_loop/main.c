@@ -66,8 +66,6 @@ int main()
 
 	matrix_setup(frame_buffer);
 
-
-
 	g_core_registers.animation_type = 3;
 
 

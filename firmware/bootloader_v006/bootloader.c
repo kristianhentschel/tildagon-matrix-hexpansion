@@ -8,7 +8,7 @@
 
 #define BOOTLOADER_PIN PD7
 #define BOOTLOADER_PIN_TIMEOUT 50
-#define BOOTLOADER_INTERFACE_TIMEOUT 10000
+#define BOOTLOADER_INTERFACE_TIMEOUT 2000
 #define BOOTLOADER_ADDRESS 0x2A
 #define BOOTLOADER_BLINK_PIN PA1
 
@@ -18,18 +18,20 @@
 #define SDA_PIN PC1
 #define SCL_PIN PC2
 
-volatile uint8_t buffer[256];
-volatile uint32_t address;
-volatile bool writing;
+// volatile uint8_t buffer[256];
+// volatile uint32_t address;
+// volatile bool active;
 
 void boot_usercode();
 void unlock_flash();
 void i2c_init(uint8_t address);
 
+volatile bool active = false;
+
 int main() {
   SystemInit();
 
-  // 1. Initialise GPIO pins and check if boot mode pin is pulled low externally within the timeout
+  // 0. Initialise GPIO pins and check if boot mode pin is pulled low externally within the timeout
   funGpioInitAll();
 
   // Input with pull up for boot mode detect pin
@@ -47,12 +49,13 @@ int main() {
   Delay_Ms(BOOTLOADER_PIN_TIMEOUT);
   funDigitalWrite(BOOTLOADER_BLINK_PIN, FUN_LOW);
 
-  // Boot to user code if bootloader pin is not pulled low
-  // TODO ignoring the condition for testing, always stay in bootloader
+  // 1. Boot to user code if bootloader pin is not pulled low
   #ifndef BOOTLOADER_FORCE
   if (funDigitalRead(BOOTLOADER_PIN) != FUN_LOW) {
     boot_usercode();
   }
+  #else
+  #warning "BOOTLOADER_FORCE is enabled, always entering bootloader"
   #endif
 
   // 2. unlock the user flash area and fast write mode
@@ -61,8 +64,16 @@ int main() {
   // 3. create an I2C slave to allow bulk writes (4 address bytes + 256 data bytes at a time)
   i2c_init(BOOTLOADER_ADDRESS);
 
-  Delay_Ms(BOOTLOADER_INTERFACE_TIMEOUT);
+  // 4. Wait until there is a long enough pause in activity on the I2C interface
+  while (true) {
+    active = false;
+    Delay_Ms(BOOTLOADER_INTERFACE_TIMEOUT);
+    if (!active) {
+      break;
+    }
+  }
 
+  // 5. boot into user code
   boot_usercode();
 }
 
@@ -169,6 +180,8 @@ void I2C1_EV_IRQHandler(void) {
   uint16_t STAR1, STAR2 __attribute__((unused));
   STAR1 = I2C1->STAR1;
   STAR2 = I2C1->STAR2;
+
+  active = true;
 
   if (STAR1 & I2C_STAR1_ADDR) { // Start event
     i2c_slave_state.command_write = 1; // Next write will be the command
