@@ -84,23 +84,27 @@ fi
 
 # Build program
 if [ ! -d $APP_NAME ]; then
+  echo
   echo "Folder for program $APP_NAME not found"
   bail
 fi
+echo
 echo "Building program $APP_NAME for $TARGET_MCU"
 (cd ./$APP_NAME && make build) || bail
 
 # Build bootloader, if needed
 BOOTLOADER_DIR=
 if [ $BOOTLOADER = 1 ]; then
-  if [ TARGET_MCU = "CH32V006" ]; then
-    BOOTLOADER_DIR=bootloader_006
+  if [ $TARGET_MCU = "CH32V006" ]; then
+    BOOTLOADER_DIR=bootloader_v006
   fi
 
-  if [ "$BOOTLOADER_DIR" != ""]; then
+  if [[ -n "$BOOTLOADER_DIR" && -d $BOOTLOADER_DIR ]]; then
+    echo
     echo "Building bootloader for $TARGET_MCU from $BOOTLOADER_DIR"
     (cd $BOOTLOADER_DIR && make build) || bail
   else
+    echo
     echo "No bootloader exists for $TARGET_MCU"
     bail
   fi
@@ -119,13 +123,16 @@ function confirm_if_interactive() {
 
 while
   # Flash bootloader
-  if [ BOOTLOADER = 1 ]; then
-    echo "Flashing bootloader and enabling it"
+  if [ $BOOTLOADER = 1 ]; then
+    echo
+    echo "Flashing bootloader"
     SUCCESS=0
     i=1
     while [ $i -le $RETRIES ]; do
-      $MINICHLINK -a -w $BOOTLOADER_DIR/bootloader.bin bootloader -B
-      if [ $? = 1 ]; then
+      $MINICHLINK -a -w $BOOTLOADER_DIR/bootloader.bin bootloader -B -D
+      if [[ $? == 0 ]]; then
+        echo
+        echo "Bootloader written."
         SUCCESS=1
         break
       else
@@ -142,12 +149,15 @@ while
 
   # Flash program, only attempt if previous step was successful (or skipped)
   if [ $SUCCESS = 1 ]; then
-    echo "Flashing program and disabling reset"
+    echo
+    echo "Flashing program"
     SUCCESS=0
     i=1
     while [ $i -le $RETRIES ]; do
       $MINICHLINK -a -w $APP_NAME/main.bin flash -D
-      if [ $? = 1 ]; then
+      if [[ $? == 0 ]]; then
+        echo
+        echo "Program flashed."
         SUCCESS=1
         break
       else
@@ -161,4 +171,4 @@ while
   fi
 
   [ $LOOP -gt 0 ] || break
-do (echo "Next board"; confirm_if_interactive); done
+do (echo "\nNext board\n"; confirm_if_interactive); done

@@ -9,7 +9,7 @@
 #include "animations/level.h"
 #include "animations/starfield.h"
 #include "animations/text.h"
-#include "eeprom_image.h"
+// #include "eeprom_image.h"
 
 void loop() __attribute__((section(".srodata")));
 
@@ -25,7 +25,7 @@ static hexpansion_header_t g_hexpansion_header = {
 		.total_size = 8192, // emulated space, reads past fs will return zero
 	},
 	.vendor_id = 0xCAFE, // "misc hexpansions" from https://badge.emfcamp.org/Tildagon/UHB-IF/Uncontrolled_IDs
-	.product_id = 0x3207,
+	.product_id = 0x54E1,
 	.unique_id = 0x0000,
 	.friendly_name = {'L', 'i', 't', 'e', 'l', 'o', 'o', 'p', 0},
 };
@@ -44,8 +44,8 @@ static const i2c_config_t g_i2c_config = {
 
 	.secondary_address = 0x50, // EEPROM on 0x50 or 0x57
 	.secondary_header =	&g_hexpansion_header,
-	.secondary_fs = eeprom_image,
-	.secondary_fs_size = EEPROM_IMAGE_SIZE,
+	.secondary_fs = NULL,
+	.secondary_fs_size = 0,
 };
 
 int main()
