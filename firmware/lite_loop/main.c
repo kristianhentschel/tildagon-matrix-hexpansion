@@ -66,12 +66,7 @@ int main()
 
 	matrix_setup(frame_buffer);
 
-	g_core_registers.animation_type = 3;
-	g_core_registers.animation_options_1[0] = 0x00;
-	g_core_registers.animation_options_1[1] = 0x00;
-	g_core_registers.animation_options_1[2] = 0x00;
-
-
+	g_core_registers.animation_type = 2;
   loop();
 }
 
