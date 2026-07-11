@@ -22,7 +22,7 @@ static hexpansion_header_t g_hexpansion_header = {
 	.filesystem_info = {
 		.offset = 32, // offset from start of eeprom, must be multiple of page size
 		.page_size = 32, // emulated eeprom page size (not littlefs block size I think)
-		.total_size = 8192, // emulated space, reads past fs will return zero
+		.total_size = 0, // emulated space, reads past fs will return zero
 	},
 	.vendor_id = 0xCAFE, // "misc hexpansions" from https://badge.emfcamp.org/Tildagon/UHB-IF/Uncontrolled_IDs
 	.product_id = 0x54E1,
@@ -42,7 +42,7 @@ static const i2c_config_t g_i2c_config = {
 	.primary_num_pages = 1,
 	.primary_page_definitions = g_page_definitions,
 
-	.secondary_address = 0x50, // EEPROM on 0x50 or 0x57
+	.secondary_address = 0x50, // EEPROM on 0x50 (expected fixed address by companion app)
 	.secondary_header =	&g_hexpansion_header,
 	.secondary_fs = NULL,
 	.secondary_fs_size = 0,
@@ -59,7 +59,7 @@ int main()
   funPinMode(PC2, GPIO_CFGLR_OUT_10Mhz_AF_OD); // SCL
   funDigitalWrite(PA1, FUN_HIGH);
 
-	g_hexpansion_header.unique_id = ESIG->UNIID1 & 0xFFFF;
+	g_hexpansion_header.unique_id = ESIG->UNIID1 ^ ESIG->UNIID2 ^ ESIG->UNIID3 & 0xFFFF;
 	hexpansion_header_fill_checksum(&g_hexpansion_header);
 
   i2c_setup(&g_i2c_config);
