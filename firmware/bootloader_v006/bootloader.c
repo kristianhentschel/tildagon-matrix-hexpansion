@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define PRINTF printf
+// #define PRINTF printf
+#define PRINTF(...)
 // #define BOOTLOADER_FORCE
 
 #define BOOTLOADER_PIN PD7
@@ -14,6 +15,7 @@
 
 #define COMMAND_STATUS 0x00
 #define COMMAND_FAST_WRITE 0x01
+#define COMMAND_READ_FLASH 0x02
 
 #define SDA_PIN PC1
 #define SCL_PIN PC2
@@ -178,6 +180,7 @@ uint8_t last_page_number;
 void I2C1_EV_IRQHandler(void) __attribute__((interrupt));
 void I2C1_EV_IRQHandler(void) {
   uint16_t STAR1, STAR2 __attribute__((unused));
+  uint16_t DATAR __attribute__((unused));
   STAR1 = I2C1->STAR1;
   STAR2 = I2C1->STAR2;
 
@@ -185,7 +188,7 @@ void I2C1_EV_IRQHandler(void) {
 
   if (STAR1 & I2C_STAR1_ADDR) { // Start event
     i2c_slave_state.command_write = 1; // Next write will be the command
-    i2c_slave_state.position = i2c_slave_state.offset; // Reset position
+    i2c_slave_state.position = 0; // Position is always 0 on starting a new read or write transfer (always starting form beginning of page)
   }
 
   if (STAR1 & I2C_STAR1_RXNE) { // Write event
@@ -194,16 +197,11 @@ void I2C1_EV_IRQHandler(void) {
       i2c_slave_state.command_write = 0;
       i2c_slave_state.address_write = 1; // next write will be the address byte (page number)
       i2c_slave_state.writing = false;
-    } else if (i2c_slave_state.address_write) { // Second byte written, set the address (page number)
+    } else if (i2c_slave_state.address_write) { // Second byte written, set the offset (page number)
       i2c_slave_state.offset = I2C1->DATAR;
-      i2c_slave_state.position = i2c_slave_state.offset;
       i2c_slave_state.address_write = 0;
       i2c_slave_state.writing = false;
-
-      if (i2c_slave_state.command == COMMAND_FAST_WRITE) {
-        programming_state = PS_CLEAR_BUFFER; // reset state machine for programming before first data byte
-        i2c_slave_state.position = 0; // always start from the first address in the page; offset is used as the page number
-      }
+      i2c_slave_state.position = 0;
 
       PRINTF("START %02x %d %d\n", i2c_slave_state.command, i2c_slave_state.offset, i2c_slave_state.position);
     } else { // data byte
@@ -213,11 +211,11 @@ void I2C1_EV_IRQHandler(void) {
         switch (programming_state) {
           case PS_CLEAR_BUFFER: // collect first byte and wait for !BSY, set FTPG, set BUFRST, wait for !BSY or EOP, clear EOP (steps 3-6)
             PRINTF("CLEAR %d\n", i2c_slave_state.offset);
-            while (FLASH->STATR & FLASH_STATR_BSY)
+            while (FLASH->STATR & FLASH_STATR_BSY) // "Check the BSY bit of the FLASH_STATR register to confirm that there are no other programming operations in progress."
               ;
             FLASH->CTLR |= FLASH_CTLR_PAGE_FTPG;
             FLASH->CTLR |= FLASH_CTLR_BUF_RST;
-            while (FLASH->STATR & FLASH_STATR_BSY && !(FLASH->STATR & FLASH_STATR_EOP))
+            while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // "Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of clearing"
               ;
             FLASH->STATR &= ~(FLASH_STATR_EOP);
             
@@ -246,7 +244,7 @@ void I2C1_EV_IRQHandler(void) {
                                // if it was the last word, write FLASH_ADDR, set STRT, wait for !BSY or EOP, clear EOP, read STATR (steps 11-14)
                                // and if we can finish programming (do after every page for now?) clear FTPG (step 15)
             // PRINTF("BYTE3_WRITE\n");
-            // Capture the last bbyte of the current word
+            // Capture the last byte of the current word
             next_word |= (I2C1->DATAR << 24);
 
             // target address:
@@ -262,10 +260,10 @@ void I2C1_EV_IRQHandler(void) {
             
             // load buffer and wait for operation to finish
             FLASH->CTLR |= FLASH_CTLR_BUF_LOAD;
-            while (FLASH->STATR & FLASH_STATR_BSY && !(FLASH->STATR & FLASH_STATR_EOP))
+            while (FLASH->STATR & FLASH_STATR_BSY) // Wait for the BSY of the FLASH_STATR register to be '0' 
               ;
 
-            // if this was the last word in the page, to the programming operation and wait for it to finish
+            // if this was the last word in the page, do the programming operation and wait for it to finish
             // otherwise start collecting bytes for the next word
             if (i2c_slave_state.position == 63) {
               PRINTF("WRITE PAGE\n");
@@ -276,7 +274,7 @@ void I2C1_EV_IRQHandler(void) {
               FLASH->CTLR |= FLASH_CTLR_STRT;
 
               // Wait for operation to complete
-              while (FLASH->STATR & FLASH_STATR_BSY && !(FLASH->STATR & FLASH_STATR_EOP))
+              while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of programming
                 ;
 
               // Clear the EOP bit and read the status register
@@ -299,12 +297,12 @@ void I2C1_EV_IRQHandler(void) {
             }
             break;
           case PS_FINISHED:
-            I2C1->DATAR;
+            DATAR = I2C1->DATAR;
             i2c_slave_state.position++;
             break;
         }
       } else {
-        I2C1->DATAR; // TODO still read the data register to avoid indefinite clock extension?
+        DATAR = I2C1->DATAR; // TODO still read the data register to avoid indefinite clock extension?
       }
     }
   }
@@ -314,20 +312,26 @@ void I2C1_EV_IRQHandler(void) {
     if (i2c_slave_state.command == COMMAND_STATUS) {
       switch (i2c_slave_state.position) {
         case 0x00:
-          I2C1->DATAR = last_status;
+          I2C1->DATAR = (last_status >> 8) & 0xff;
           break;
         case 0x01:
-          I2C1->DATAR = last_page_number;
+          I2C1->DATAR = last_status & 0xff;
           break;
         case 0x02:
-          I2C1->DATAR = INFO->CHIPID;
+          I2C1->DATAR = last_page_number;
           break;
         case 0x04:
+          I2C1->DATAR = INFO->CHIPID;
+          break;
+        case 0x06:
           I2C1->DATAR = ESIG->FLACAP;
           break;
         default:
           I2C1->DATAR = 0x00;
       }
+      i2c_slave_state.position++;
+    } else if (i2c_slave_state.command == COMMAND_READ_FLASH) {
+      I2C1->DATAR = *(uint8_t*)(flash_start + 256 * i2c_slave_state.offset + i2c_slave_state.position);
       i2c_slave_state.position++;
     } else {
       I2C1->DATAR = 0x00;
