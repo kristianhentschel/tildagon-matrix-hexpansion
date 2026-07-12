@@ -51,8 +51,8 @@ int main() {
   Delay_Ms(BOOTLOADER_PIN_TIMEOUT);
   funDigitalWrite(BOOTLOADER_BLINK_PIN, FUN_LOW);
 
-  // 1. Boot to user code if bootloader pin is not pulled low
   #ifndef BOOTLOADER_FORCE
+  // 1. Boot to user code if bootloader pin is not pulled low
   if (funDigitalRead(BOOTLOADER_PIN) != FUN_LOW) {
     boot_usercode();
   }
@@ -67,6 +67,7 @@ int main() {
   i2c_init(BOOTLOADER_ADDRESS);
 
   // 4. Wait until there is a long enough pause in activity on the I2C interface
+  #ifndef BOOTLOADER_FORCE
   while (true) {
     active = false;
     Delay_Ms(BOOTLOADER_INTERFACE_TIMEOUT);
@@ -77,6 +78,7 @@ int main() {
 
   // 5. boot into user code
   boot_usercode();
+  #endif
 }
 
 
@@ -197,6 +199,7 @@ void I2C1_EV_IRQHandler(void) {
       i2c_slave_state.command_write = 0;
       i2c_slave_state.address_write = 1; // next write will be the address byte (page number)
       i2c_slave_state.writing = false;
+      PRINTF("COMMAND 0x%02x\n", i2c_slave_state.command);
     } else if (i2c_slave_state.address_write) { // Second byte written, set the offset (page number)
       i2c_slave_state.offset = I2C1->DATAR;
       i2c_slave_state.address_write = 0;
@@ -204,6 +207,18 @@ void I2C1_EV_IRQHandler(void) {
       i2c_slave_state.position = 0;
 
       PRINTF("START %02x %d %d\n", i2c_slave_state.command, i2c_slave_state.offset, i2c_slave_state.position);
+
+      // Check the lock/flock bits of ctlr
+      // Fast-erase the selected page before writing
+      while ((FLASH->STATR & FLASH_STATR_BSY)) // Check no other flash operation is in progress
+        ;
+      FLASH->CTLR |= FLASH_CTLR_PAGE_FTER; // enable fast page erase mode
+      FLASH->ADDR = flash_start + i2c_slave_state.offset * 256; // first address of page to be erased
+      FLASH->CTLR |= FLASH_CTLR_STRT; // start operation
+      while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of programming
+        ;
+      FLASH->CTLR &= ~(FLASH_STATR_EOP); // Clear EOP bit
+      FLASH->CTLR &= ~(FLASH_CTLR_PAGE_FTER); // disable erase mode
     } else { // data byte
       i2c_slave_state.writing = true;
 
@@ -218,6 +233,9 @@ void I2C1_EV_IRQHandler(void) {
             while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // "Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of clearing"
               ;
             FLASH->STATR &= ~(FLASH_STATR_EOP);
+            
+            // Not mentioned but shouldn't buf rst be cleared?
+            FLASH->CTLR &= ~(FLASH_CTLR_BUF_RST);
             
             PRINTF("STATR: 0x%08lx CTLR: 0x%08lx\n", FLASH->STATR, FLASH->CTLR);
             
@@ -254,35 +272,35 @@ void I2C1_EV_IRQHandler(void) {
             uint32_t page_address = flash_start + i2c_slave_state.offset * 256;
             uint32_t word_address = page_address + 4 * i2c_slave_state.position;
 
+            // Write a 32-bit word (step 7)
             *((uint32_t *) word_address) = next_word;
-            // if (i2c_slave_state.position == 0)
-            //   PRINTF("%08lx\n", next_word);
-            
-            // load buffer and wait for operation to finish
+            if (i2c_slave_state.offset == 0)
+              PRINTF("%08lx: %08lx\n", word_address, next_word);
+            // load buffer and wait for operation to finish (steps 8-9)
             FLASH->CTLR |= FLASH_CTLR_BUF_LOAD;
             while (FLASH->STATR & FLASH_STATR_BSY) // Wait for the BSY of the FLASH_STATR register to be '0' 
               ;
 
-            // if this was the last word in the page, do the programming operation and wait for it to finish
-            // otherwise start collecting bytes for the next word
+            // if this was the last word in the page, do the programming operation and wait for it to finish (steps 10+)
+            // otherwise start collecting bytes for the next word (repeat steps 7-9)
             if (i2c_slave_state.position == 63) {
               PRINTF("WRITE PAGE\n");
               funDigitalWrite(BOOTLOADER_BLINK_PIN, FUN_HIGH);
 
               // Write the page address and start the programming operation
-              FLASH->ADDR = page_address;
-              FLASH->CTLR |= FLASH_CTLR_STRT;
+              FLASH->ADDR = page_address; // step 11: write first address of the page
+              FLASH->CTLR |= FLASH_CTLR_STRT; // step 12: set the STRT bit to start the action
 
-              // Wait for operation to complete
+              // Wait for operation to complete and clear the EOP bit (step 13)
               while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of programming
                 ;
-
-              // Clear the EOP bit and read the status register
               FLASH->STATR &= ~(FLASH_STATR_EOP);
+
+              // query the statr register
               last_page_number = i2c_slave_state.offset;
               last_status = FLASH->STATR;
 
-              // Clear FTPG
+              // Clear FTPG (step 15)
               FLASH->CTLR &= ~(FLASH_CTLR_PAGE_FTPG);
 
               funDigitalWrite(BOOTLOADER_BLINK_PIN, FUN_LOW);
