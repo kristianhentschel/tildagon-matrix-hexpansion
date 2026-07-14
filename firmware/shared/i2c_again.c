@@ -35,8 +35,8 @@
 #include "i2c_again.h"
 
 struct _i2c_slave_state {
-  uint16_t offset;
-  uint16_t position;
+  volatile uint16_t offset;
+  volatile uint16_t position;
   volatile uint8_t* volatile registers1;
   volatile uint8_t size1;
   volatile uint8_t* volatile header2;
@@ -128,8 +128,12 @@ void SetupSecondaryI2CSlave(uint8_t address, volatile hexpansion_header_t* heade
 void I2C1_EV_IRQHandler(void) __attribute__((interrupt));
 void I2C1_EV_IRQHandler(void) {
   uint16_t STAR1, STAR2 __attribute__((unused));
+  uint8_t DATAR __attribute__((unused));
   STAR1 = I2C1->STAR1;
   STAR2 = I2C1->STAR2;
+
+  // printf("I2C status %08x %08x\n", STAR1);
+  DATAR = I2C1->DATAR;
 
   if (STAR1 & I2C_STAR1_ADDR) { // Start event
     i2c_slave_state.first_write = 1; // Next write will be the offset
@@ -139,7 +143,7 @@ void I2C1_EV_IRQHandler(void) {
 
   if (STAR1 & I2C_STAR1_RXNE) { // Write event
     if (i2c_slave_state.first_write) { // First byte written, set the offset
-      i2c_slave_state.offset = I2C1->DATAR;
+      i2c_slave_state.offset = DATAR;
       i2c_slave_state.position = i2c_slave_state.offset;
       i2c_slave_state.first_write = 0;
 
@@ -150,7 +154,7 @@ void I2C1_EV_IRQHandler(void) {
       }
     } else if (i2c_slave_state.second_write) { // Second byte written, set the lower byte of offset (for secondary device only)
       i2c_slave_state.offset <<= 8;
-      i2c_slave_state.offset |= I2C1->DATAR;
+      i2c_slave_state.offset |= DATAR;
       i2c_slave_state.position = i2c_slave_state.offset;
       // printf("second write, offset = %d\n", i2c_slave_state.offset);
 
@@ -160,13 +164,13 @@ void I2C1_EV_IRQHandler(void) {
       i2c_slave_state.writing = true;
       if (i2c_slave_state.address2matched) {
         if (i2c_slave_state.position < i2c_slave_state.size2 && !i2c_slave_state.read_only2) {
-          i2c_slave_state.registers2[i2c_slave_state.position] = I2C1->DATAR;
+          i2c_slave_state.registers2[i2c_slave_state.position] = DATAR;
           i2c_slave_state.position++;
         }
       } else {
         // TODO primary device needs to change page after writing the command register at 0xfd (for applications needing multiple pages)
         if (i2c_slave_state.position < i2c_slave_state.size1 && !i2c_slave_state.read_only1) {
-          i2c_slave_state.registers1[i2c_slave_state.position] = I2C1->DATAR;
+          i2c_slave_state.registers1[i2c_slave_state.position] = DATAR;
           i2c_slave_state.position++;
         }
       }
