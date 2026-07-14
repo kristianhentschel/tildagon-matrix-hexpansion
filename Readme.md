@@ -14,6 +14,8 @@ Daughter boards are soldered to the base pads. They can be cheaper (e.g. HASL fi
 
 ## Hardware
 
+_Sorry, the hardware projects are not published yet, I'll get round to it after the camp..._
+
 The `hardware` directory contains KiCad projects for the PCBs.
 
 * `base-v2-lite`: The current base hexpansion board; with a CH32V006 co-processor and all GPIO pins and hexpansion interface pins broken out.
@@ -23,13 +25,17 @@ There is also a library of symbols and footprints to aid in making custom daught
 
 ## Firmware
 
-The CH32V006 processor on the base board runs native firmware code built with the [ch32fun framework](https://github.com/kristianhentschel/tildagon-matrix-hexpansion) (loaded here as a git submodule; ensure this is checked out with `git submodule update --init`).
+The CH32V006 processor on the base board runs native firmware code built with the [ch32fun framework](https://github.com/cnlohr/ch32fun) (loaded here as a git submodule).
 
 * `firmware/lite_loop` is the driver for the `lite-loop` daughter board. It maintains the LED matrix display and presents an I2C interface for identifying and controlling the hexpansion from the badge.
-* `firmware/bootloader` presents an I2C EEPROM-like interface so the badge can write to the main code flash storage area of the chip and thus replace the main program with a new firmware image.
+* `firmware/bootloader_006` presents an I2C EEPROM-like interface so the badge can write to the main code flash storage area of the chip and thus replace the main program with a new firmware image.
 
-To provision a factory-fresh processor, the bootloader must first be flashed using a dedicated programmer like the WCH-LinkE (flash bootloader, enable PD7 use as GPIO, flash main program). After this, firmware updates can be applied from the badge app and a dedicated programmer is not required (but may still be helpful for debugging).
+To provision a factory-fresh processor, the bootloader must first be flashed using a dedicated programmer like the WCH-LinkE (flash bootloader, enable PD7 use as GPIO, flash main program -- see the `provision.sh` script). After this, firmware updates can be applied from the badge app and a dedicated programmer is not required (but may still be helpful for debugging).
 
 ## Note on previous iteration
 
 The base is called `base-v2-lite` because the first iteration of this also had a [IS31FL3731](https://lumissil.com/assets/pdf/core/IS31FL3731_DS.pdf) LED driver, but this was found to add unnecessary cost and complexity and was never assembled or programmed properly. In the current `v2` the current limiting resistors were moved to the daughter board and the breakout pads have a more generic layout, also including the hexpansion connector pins. I still have a batch of unpopulated `v1` boards if anyone is interested in making this work -- it will probably make for a faster and brighter display, but can only address 144 LEDs.
+
+## Acknowledgements
+
+The base board is derived from the [hexpansion template](https://github.com/emfcamp/badge-2024-hardware/tree/main/hexpansion) by kliment. 
