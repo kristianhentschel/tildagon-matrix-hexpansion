@@ -28,7 +28,7 @@ void boot_usercode();
 void unlock_flash();
 void i2c_init(uint8_t address);
 
-volatile bool active = false;
+volatile bool active;
 
 int main() {
   SystemInit();
@@ -68,19 +68,28 @@ int main() {
 
   // 4. Wait until there is a long enough pause in activity on the I2C interface
   #ifndef BOOTLOADER_FORCE
+  uint32_t last_check = SysTick->CNT;
+  active = true;
   while (true) {
-    active = false;
-    Delay_Ms(BOOTLOADER_INTERFACE_TIMEOUT);
-    if (!active) {
-      break;
+    // Check if there has been any I2C interrupt recently; if active has not been set by the ISR we exit the bootloader
+    if (TimeElapsed32u(SysTick->CNT, last_check) > Ticks_from_Ms(BOOTLOADER_INTERFACE_TIMEOUT)) {
+      PRINTF("CHECK\n");
+      if (!active) {
+        break;
+      }
+      active = false;
+      last_check = SysTick->CNT;
     }
+
+    // Toggle blink LED to signal that bootloader is active
+    funDigitalWrite(BOOTLOADER_BLINK_PIN, !funDigitalRead(BOOTLOADER_BLINK_PIN));
+    Delay_Ms(25);
   }
 
   // 5. boot into user code
   boot_usercode();
   #endif
 }
-
 
 void boot_usercode() {
   PRINTF("REBOOT\n");
@@ -285,7 +294,6 @@ void I2C1_EV_IRQHandler(void) {
             // otherwise start collecting bytes for the next word (repeat steps 7-9)
             if (i2c_slave_state.position == 63) {
               PRINTF("WRITE PAGE\n");
-              funDigitalWrite(BOOTLOADER_BLINK_PIN, FUN_HIGH);
 
               // Write the page address and start the programming operation
               FLASH->ADDR = page_address; // step 11: write first address of the page
@@ -303,7 +311,6 @@ void I2C1_EV_IRQHandler(void) {
               // Clear FTPG (step 15)
               FLASH->CTLR &= ~(FLASH_CTLR_PAGE_FTPG);
 
-              funDigitalWrite(BOOTLOADER_BLINK_PIN, FUN_LOW);
               programming_state = PS_FINISHED;
 
               PRINTF("DONE\n");
