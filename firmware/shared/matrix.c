@@ -143,10 +143,10 @@ void matrix_setup(volatile matrix_pwm_t *frame_buffer) {
   #endif
 
   // Enable DMA peripheral
-	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
+	RCC->AHBPCENR |= RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
 
 	// Enable GPIOC, GPIOD and Timer 1 peripherals
-	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1;
+	RCC->APB2PCENR |= RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1;
 
   // Configure all used pins as open drain outputs; the active column pin will be
   // set as a Push-Pull output later.
