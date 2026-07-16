@@ -23,10 +23,6 @@
 #define SDA_PIN PC1
 #define SCL_PIN PC2
 
-// volatile uint8_t buffer[256];
-// volatile uint32_t address;
-// volatile bool active;
-
 void boot_usercode();
 void unlock_flash();
 void i2c_init(uint8_t address);
@@ -207,13 +203,13 @@ void I2C1_EV_IRQHandler(void) {
 
   if (STAR1 & I2C_STAR1_RXNE) { // Write event
     if (i2c_slave_state.command_write) { // First byte written, set the command
-      i2c_slave_state.command = I2C1->DATAR;
+      i2c_slave_state.command = DATAR;
       i2c_slave_state.command_write = 0;
       i2c_slave_state.address_write = 1; // next write will be the address byte (page number)
       i2c_slave_state.writing = false;
       PRINTF("COMMAND 0x%02x\n", i2c_slave_state.command);
     } else if (i2c_slave_state.address_write) { // Second byte written, set the offset (page number)
-      i2c_slave_state.offset = I2C1->DATAR;
+      i2c_slave_state.offset = DATAR;
       i2c_slave_state.address_write = 0;
       i2c_slave_state.writing = false;
       i2c_slave_state.position = 0;
@@ -257,22 +253,22 @@ void I2C1_EV_IRQHandler(void) {
             PRINTF("STATR: 0x%08lx CTLR: 0x%08lx\n", FLASH->STATR, FLASH->CTLR);
             
             // Also collect first byte here and then skip to byte1. later words don't need the clear buffer part and start with byte0 instead.
-            next_word = (I2C1->DATAR << 0);
+            next_word = (DATAR << 0);
             programming_state = PS_BYTE1;
             break;
           case PS_BYTE0: // collect the first byte
             // PRINTF("BYTE0\n");
-            next_word = (I2C1->DATAR << 0);
+            next_word = (DATAR << 0);
             programming_state = PS_BYTE1;
             break;
           case PS_BYTE1: // collect the second byte
             // PRINTF("BYTE1\n");
-            next_word |= (I2C1->DATAR << 8);
+            next_word |= (DATAR << 8);
             programming_state = PS_BYTE2;
             break;
           case PS_BYTE2: // collect the third byte
             // PRINTF("BYTE2\n");
-            next_word |= (I2C1->DATAR << 16);
+            next_word |= (DATAR << 16);
             programming_state = PS_BYTE3_WRITE;
             break;
           case PS_BYTE3_WRITE: // collect the fourth byte, write the full 32-bit word, set BUFLOAD, wait for !BSY or EOP (steps 7-10)
@@ -280,7 +276,7 @@ void I2C1_EV_IRQHandler(void) {
                                // and if we can finish programming (do after every page for now?) clear FTPG (step 15)
             // PRINTF("BYTE3_WRITE\n");
             // Capture the last byte of the current word
-            next_word |= (I2C1->DATAR << 24);
+            next_word |= (DATAR << 24);
 
             // target address:
             // start from flash start address, and add
@@ -330,12 +326,9 @@ void I2C1_EV_IRQHandler(void) {
             }
             break;
           case PS_FINISHED:
-            DATAR = I2C1->DATAR;
             i2c_slave_state.position++;
             break;
         }
-      } else {
-        DATAR = I2C1->DATAR; // TODO still read the data register to avoid indefinite clock extension?
       }
     }
   }
