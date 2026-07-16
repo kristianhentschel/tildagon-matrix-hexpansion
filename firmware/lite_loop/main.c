@@ -77,9 +77,29 @@ void loop() {
   int i = 0;
   while(1) {
     if (g_core_registers.direct_control_options != 0) {
-      // TODO handle 1/2/3/4 bit data and convert to 8 bit format of frame buffer
-      for (uint8_t j = 0; j < MATRIX_NUM_LEDS; j++) {
-        frame_buffer[j] = g_core_registers.direct_control_data[j];
+      switch (g_core_registers.direct_control_options & CORE_REGISTERS_DIRECT_CONTROL_TYPE) {
+        case CORE_REGISTERS_DIRECT_CONTROL_TYPE_CONST:
+          // Constant mode: all LEDs set to the same PWM value (that of the first byte)
+          for (uint8_t j = 0; j < MATRIX_NUM_LEDS; j++) {
+            frame_buffer[j] = g_core_registers.direct_control_data[0];
+          }
+          break;
+        case CORE_REGISTERS_DIRECT_CONTROL_TYPE_BIT:
+          // Bit mode: unpack each bit in a 20 byte array to turn one LED fully on or off
+          for (uint8_t j = 0; j < 20; j++) {
+            for (uint8_t k = 0; k < 8; k++) {
+              if (j * 8 + k < MATRIX_NUM_LEDS) {
+                frame_buffer[j * 8 + k] = (g_core_registers.direct_control_data[j] & (0x01 << (7 - k))) ? 255 : 0;
+              }
+            }
+          }
+          break;
+        case CORE_REGISTERS_DIRECT_CONTROL_TYPE_BYTE:
+          // Byte morde: each settings byte controls the PWM level of one LED (1:1 mapping)
+          for (uint8_t j = 0; j < MATRIX_NUM_LEDS; j++) {
+            frame_buffer[j] = g_core_registers.direct_control_data[j];
+          }
+          break;
       }
     } else if (g_core_registers.animation_type == 1) {
       animation_level(&g_core_registers, frame_buffer);

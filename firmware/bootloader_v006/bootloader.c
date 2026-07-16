@@ -202,6 +202,7 @@ void I2C1_EV_IRQHandler(void) {
   }
 
   if (STAR1 & I2C_STAR1_RXNE) { // Write event
+    DATAR = I2C1->DATAR; // always read the data word first if one is available
     if (i2c_slave_state.command_write) { // First byte written, set the command
       i2c_slave_state.command = DATAR;
       i2c_slave_state.command_write = 0;
