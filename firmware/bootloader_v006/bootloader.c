@@ -4,8 +4,11 @@
 #include <stdio.h>
 
 // #define PRINTF printf
-#define PRINTF(...)
 // #define BOOTLOADER_FORCE
+
+#ifndef PRINTF
+#define PRINTF(...)
+#endif
 
 #define BOOTLOADER_PIN PD7
 #define BOOTLOADER_PIN_TIMEOUT 50
@@ -217,17 +220,22 @@ void I2C1_EV_IRQHandler(void) {
 
       PRINTF("START %02x %d %d\n", i2c_slave_state.command, i2c_slave_state.offset, i2c_slave_state.position);
 
-      // Check the lock/flock bits of ctlr
-      // Fast-erase the selected page before writing
-      while ((FLASH->STATR & FLASH_STATR_BSY)) // Check no other flash operation is in progress
-        ;
-      FLASH->CTLR |= FLASH_CTLR_PAGE_FTER; // enable fast page erase mode
-      FLASH->ADDR = flash_start + i2c_slave_state.offset * 256; // first address of page to be erased
-      FLASH->CTLR |= FLASH_CTLR_STRT; // start operation
-      while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of programming
-        ;
-      FLASH->CTLR &= ~(FLASH_STATR_EOP); // Clear EOP bit
-      FLASH->CTLR &= ~(FLASH_CTLR_PAGE_FTER); // disable erase mode
+      if (i2c_slave_state.command == COMMAND_FAST_WRITE) {
+        // Check the lock/flock bits of ctlr
+        // Fast-erase the selected page before writing
+        while ((FLASH->STATR & FLASH_STATR_BSY)) // Check no other flash operation is in progress
+          ;
+        FLASH->CTLR |= FLASH_CTLR_PAGE_FTER; // enable fast page erase mode
+        FLASH->ADDR = flash_start + i2c_slave_state.offset * 256; // first address of page to be erased
+        FLASH->CTLR |= FLASH_CTLR_STRT; // start operation
+        while ((FLASH->STATR & FLASH_STATR_BSY) && !(FLASH->STATR & FLASH_STATR_EOP)) // Wait for the BSY bit to become '0' or the EOP bit of FLASH_STATR register to be '1' to indicate the end of programming
+          ;
+        FLASH->CTLR &= ~(FLASH_STATR_EOP); // Clear EOP bit
+        FLASH->CTLR &= ~(FLASH_CTLR_PAGE_FTER); // disable erase mode
+
+        // Reset the programming state to expect the first step next
+        programming_state = PS_CLEAR_BUFFER;
+      }
     } else { // data byte
       i2c_slave_state.writing = true;
 
