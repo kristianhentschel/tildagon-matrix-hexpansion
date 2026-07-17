@@ -2,6 +2,7 @@
 #define CORE_REGISTERS_H
 #include <stdint.h>
 
+// TODO define this from commit hash in makefile and just check for equality?
 #ifndef CORE_REGISTERS_VERSION
 #define CORE_REGISTERS_VERSION 20260716
 #endif

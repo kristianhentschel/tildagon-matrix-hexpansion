@@ -9,9 +9,8 @@
 #include "animations/level.h"
 #include "animations/starfield.h"
 #include "animations/text.h"
-// #include "eeprom_image.h"
 
-#define DEBUG_BLINK
+// #define DEBUG_BLINK
 
 void loop() __attribute__((section(".srodata")));
 
