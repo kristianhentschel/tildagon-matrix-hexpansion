@@ -1218,7 +1218,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "tildagon:hexpansion-edge-connector"
+	(footprint "matrix-hexpansion:hexpansion-edge-connector"
 		(layer "F.Cu")
 		(uuid "672754d2-6474-4388-b8d9-17cbc61fc1c0")
 		(at 120 62 -90)
@@ -1256,6 +1256,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -1267,6 +1268,7 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -1683,7 +1685,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.wch-ic.com/products/CH32V003.html"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -2927,7 +2929,6 @@
 				)
 			)
 		)
-		(attr exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -18.288 0)
