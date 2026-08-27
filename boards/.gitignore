@@ -1,0 +1,12 @@
+*.bak
+*.lck
+**/*-backups/*.zip
+_autosave*.kicad_pcb
+fp-info-cache
+*.zip
+*.gbr
+*.gbrjob
+*.drl
+*.csv
+*auto_saved_files*
+*.kicad_prl
