@@ -14,12 +14,10 @@ Daughter boards are soldered to the base pads. They can be cheaper (e.g. HASL fi
 
 ## Hardware
 
-_Sorry, the hardware projects are not published yet, I'll get round to it after the camp..._
+The `boards` directory contains KiCad projects for the PCBs.
 
-The `hardware` directory contains KiCad projects for the PCBs.
-
-* `base-v2-lite`: The current base hexpansion board; with a CH32V006 co-processor and all GPIO pins and hexpansion interface pins broken out.
-* `lite-loop`: 156-LED matrix display daughter board (13 pin charlie-plexing, arranged in 8 rows of 18 columns and a 9th row of 12 columns). Six instances of this can (almost) seamlessly surround the badge.
+* `base_v2_lite`: The current base hexpansion board; with a CH32V006 co-processor and all GPIO pins and hexpansion interface pins broken out.
+* `lite_loop`: The 156-LED matrix display daughter board (13 pin charlie-plexing, arranged in 8 rows of 18 columns and a 9th row of 12 columns). Six instances of this can (almost) seamlessly surround the badge.
 
 There is also a library of symbols and footprints to aid in making custom daughter boards.
 
@@ -38,4 +36,4 @@ The base is called `base-v2-lite` because the first iteration of this also had a
 
 ## Acknowledgements
 
-The base board is derived from the [hexpansion template](https://github.com/emfcamp/badge-2024-hardware/tree/main/hexpansion) by kliment. 
+The base board is derived from the [badge-2024-hardware template project](https://github.com/emfcamp/badge-2024-hardware/tree/main/hexpansion) by kliment. The `hexpansion-connector` symbol and footprint included with this repository for convenience are also from the same project.
