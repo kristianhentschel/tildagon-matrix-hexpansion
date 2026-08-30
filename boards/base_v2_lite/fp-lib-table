@@ -1,0 +1,4 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "matrix-hexpansion") (type "KiCad") (uri "${KIPRJMOD}/../matrix-hexpansion.pretty") (options "") (descr ""))
+)
