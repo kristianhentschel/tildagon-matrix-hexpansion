@@ -226,6 +226,8 @@ void i2c_setup(const i2c_config_t* config) {
   if (config->primary_num_pages > 0) {
     i2c_page_definition_t page = config->primary_page_definitions[0];
     SetupI2CSlave(config->primary_address, page.data, page.data_size, false);
+  } else {
+    SetupI2CSlave(config->primary_address, NULL, 0, false);
   }
 
   SetupSecondaryI2CSlave(
